@@ -13,5 +13,6 @@ DownToRead was developed in vertical RED → GREEN slices. The commands below we
 | Quiet automatic update checks | focused updater test showed the startup check displayed “up to date” and network-error dialogs | background checks now suppress no-update/network noise while still prompting when an update exists |
 | Exact-tree review corrections | focused tests failed for incomplete native macOS roles, unsafe default update action, ambiguous startup handoff, and an unnecessary CSP source | standard macOS roles/window menu, safe update default, explicit last-request-wins handoff, and narrower image CSP now pass |
 | First release matrix | Windows CI exposed a platform-specific hard-coded file URL; macOS exposed that empty signing-secret environment variables are not equivalent to absent variables | portable file-URL fixtures and separate signed/unsigned macOS build paths now pass contract tests |
+| Release publication | the successful `v0.1.1` matrix produced workflow artifacts but `electron-builder --publish always` left the GitHub Release with source archives only | platform jobs now build with `--publish never`; one dependent release job downloads all three artifacts and uploads them atomically |
 
 Final verification results are intentionally obtained from the actual commands after the last edit rather than recorded in advance here.

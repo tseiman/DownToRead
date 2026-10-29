@@ -28,7 +28,11 @@ test('package and release workflow cover every requested platform and artifact',
   assert.deepEqual(pkg.build.win.target, ['nsis']);
   assert.deepEqual(pkg.build.fileAssociations.map((x) => x.ext), ['md', 'markdown']);
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
-  for (const text of ['windows-latest','macos-latest','ubuntu-latest','workflow_dispatch','tags:','GH_TOKEN','CSC_LINK','latest-linux.yml','actions/checkout@v7','actions/setup-node@v7','actions/upload-artifact@v7','CSC_IDENTITY_AUTO_DISCOVERY']) assert.match(workflow, new RegExp(text));
+  for (const text of ['windows-latest','macos-latest','ubuntu-latest','workflow_dispatch','tags:','CSC_LINK','latest-linux.yml','actions/checkout@v7','actions/setup-node@v7','actions/upload-artifact@v7','actions/download-artifact@v7','softprops/action-gh-release@v2','CSC_IDENTITY_AUTO_DISCOVERY','--publish never','needs: build','merge-multiple: true']) assert.match(workflow, new RegExp(text));
+  assert.doesNotMatch(workflow, /--publish always/);
+  assert.doesNotMatch(workflow, /latest\*\.yaml/);
+  assert.match(workflow, /release:\n\s+if: startsWith\(github\.ref, 'refs\/tags\/'\)\n\s+needs: build\n\s+permissions:\n\s+contents: write/);
+  assert.match(workflow, /^permissions:\n  contents: read/m);
   assert.match(workflow, /secrets\.MAC_CERTIFICATE\s*!=\s*''/);
   assert.match(workflow, /env\.HAS_MAC_CERTIFICATE\s*!=\s*'true'/);
   assert.match(workflow, /env\.HAS_MAC_CERTIFICATE\s*==\s*'true'/);
