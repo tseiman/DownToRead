@@ -20,6 +20,8 @@ test('BrowserWindow and CSP use a sandboxed isolated renderer', () => {
 test('preload exposes a narrow frozen API without Electron primitives', () => {
   const preload = read('src/preload.cjs');
   assert.match(preload, /contextBridge\.exposeInMainWorld/);
+  assert.match(preload, /webUtils\.getPathForFile/);
+  assert.match(preload, /openDroppedFile/);
   assert.doesNotMatch(preload, /exposeInMainWorld\([^,]+,\s*(ipcRenderer|require)/);
 });
 
@@ -57,4 +59,22 @@ test('document fragments use generated heading IDs after rendering', () => {
   assert.match(renderer, /assignHeadingIds\(\)/);
   assert.match(renderer, /getElementById\(payload\.fragment\)/);
   assert.match(renderer, /scrollIntoView\(\)/);
+});
+
+test('filesystem drag and drop opens one validated Markdown file', () => {
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.cjs');
+  assert.match(renderer, /addEventListener\('dragover'/);
+  assert.match(renderer, /addEventListener\('drop'/);
+  assert.match(renderer, /downToRead\.openDroppedFile/);
+  assert.match(main, /ipcMain\.handle\('open-dropped-file'/);
+  assert.match(main, /return openDocument\(filePath\)/);
+});
+
+test('smoke readiness requires local images to decode successfully', () => {
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.cjs');
+  assert.match(renderer, /image\.decode\(\)/);
+  assert.match(renderer, /localImagesLoaded/);
+  assert.match(main, /result\.localImagesLoaded === true/);
 });

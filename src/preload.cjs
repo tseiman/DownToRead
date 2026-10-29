@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const allowedEvents = new Set(['document']);
 const api = Object.freeze({
   onDocument(callback) {
@@ -8,6 +8,12 @@ const api = Object.freeze({
     return () => ipcRenderer.removeListener('document', listener);
   },
   assetUrl: (source) => ipcRenderer.invoke('asset-url', source),
+  openDroppedFile(file) {
+    try {
+      const filePath = webUtils.getPathForFile(file);
+      return filePath ? ipcRenderer.invoke('open-dropped-file', filePath) : Promise.resolve(false);
+    } catch { return Promise.resolve(false); }
+  },
   openDocumentLink: (href) => ipcRenderer.invoke('open-document-link', href),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   ready: () => ipcRenderer.send('renderer-ready'),

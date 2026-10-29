@@ -4,9 +4,9 @@ DownToRead is a cross-platform, view-only Electron reader for local Markdown. It
 
 ## Features
 
-- Open `.md` and `.markdown` from the native **File → Open…** menu, a shell command, an operating-system file association, macOS Finder, or a second application launch.
+- Open `.md` and `.markdown` from the native **File → Open…** menu, drag and drop onto the application window, a shell command, an operating-system file association, macOS Finder, or a second application launch.
 - GitHub-Flavored Markdown including tables, task lists, autolinks, and strikethrough.
-- Relative and absolute local images plus fenced `mermaid` diagrams.
+- Relative and absolute local SVG/PNG/JPEG/WebP/GIF images plus fenced `mermaid` diagrams. Local images are decoded before rendering is reported complete; missing or invalid images retain descriptive fallback text.
 - Navigation between local Markdown files through relative links, repository-root links such as `/docs/setup.md`, and same-repository GitHub `blob` URLs. Heading fragments are supported.
 - Native application menus for Open, Print, Zoom In, Zoom Out, Actual Size, and Check for Updates. There is no document toolbar, editor, sidebar, search, tabs, or local server.
 - Native printing with print-focused reading styles.
@@ -87,6 +87,8 @@ npm run dist
 ## File associations
 
 Installers register `.md` and `.markdown` as documents DownToRead can view. At runtime, cold-start arguments, Electron's macOS `open-file` event, and second-instance arguments all pass through the same extension and filesystem validation. One running process owns the viewer; later launches hand their document to it.
+
+Dropping exactly one `.md` or `.markdown` file onto the application window uses the same validated main-process open path. Other file types and multi-file drops are not treated as documents.
 
 ## Local repository navigation
 

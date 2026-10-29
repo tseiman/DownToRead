@@ -91,6 +91,10 @@ else {
       if (!target || !(await regularFile(target.path))) return false;
       return openDocument(target.path, target.fragment);
     });
+    ipcMain.handle('open-dropped-file', async (_event, filePath) => {
+      if (typeof filePath !== 'string' || filePath.length > 8192) return false;
+      return openDocument(filePath);
+    });
     ipcMain.handle('open-external', async (_event, value) => {
       if (typeof value !== 'string' || value.length > 8192) return false;
       try { const url = new URL(value); if (!['http:','https:'].includes(url.protocol)) return false; await shell.openExternal(url.href); return true; } catch { return false; }
@@ -102,8 +106,8 @@ else {
     });
     ipcMain.on('renderer-rendered', (_event, result) => {
       if (process.env.DTR_SMOKE !== '1') return;
-      const passed = result && result.markdown === true && result.mermaid === true && result.relativeImage === true;
-      console.log(passed ? 'SMOKE PASS: Markdown, Mermaid, and relative SVG are ready.' : `SMOKE FAIL: ${JSON.stringify(result)}`);
+      const passed = result && result.markdown === true && result.mermaid === true && result.relativeImage === true && result.localImagesLoaded === true;
+      console.log(passed ? 'SMOKE PASS: Markdown, Mermaid, and decoded relative SVG are ready.' : `SMOKE FAIL: ${JSON.stringify(result)}`);
       app.exit(passed ? 0 : 1);
     });
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate({ platform: process.platform, command: executeCommand })));
