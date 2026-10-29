@@ -5,15 +5,20 @@ function escapeHtml(value) {
 }
 
 function classifyLink(value) {
-  if (typeof value !== 'string') return 'blocked';
+  if (typeof value !== 'string' || !value) return 'blocked';
   if (value.startsWith('#')) return 'internal';
-  try { return ['http:', 'https:'].includes(new URL(value).protocol) ? 'external' : 'blocked'; }
-  catch { return 'blocked'; }
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(value)) return 'local';
+  try {
+    const protocol = new URL(value).protocol;
+    if (protocol === 'file:') return 'local';
+    if (protocol === 'https:') return 'external';
+    if (['javascript:', 'data:', 'blob:'].includes(protocol)) return 'blocked';
+    return 'confirmation';
+  } catch { return 'blocked'; }
 }
 
 function createMarkdownRenderer() {
   const renderer = {
-    html({ text }) { return escapeHtml(text); },
     code({ text, lang }) {
       if ((lang || '').trim().toLowerCase() === 'mermaid') return `<div class="mermaid">${escapeHtml(text)}</div>\n`;
       const language = lang ? ` class="language-${escapeHtml(lang)}"` : '';

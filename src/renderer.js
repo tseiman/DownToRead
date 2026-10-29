@@ -2,7 +2,6 @@
   const root = document.getElementById('document');
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const renderer = {
-    html({ text }) { return escapeHtml(text); },
     code({ text, lang }) {
       return (lang || '').trim().toLowerCase() === 'mermaid'
         ? `<div class="mermaid">${escapeHtml(text)}</div>`
@@ -15,6 +14,7 @@
   function assignHeadingIds() {
     const seen = new Map();
     for (const heading of root.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
+      if (heading.id) continue;
       const base = (heading.textContent || '').trim().toLowerCase()
         .replace(/[^\p{L}\p{N}\s-]/gu, '')
         .replace(/\s+/g, '-')
@@ -26,38 +26,65 @@
     }
   }
 
+  async function loadLocalImage(image, source) {
+    const safe = await window.downToRead.assetUrl(source);
+    if (!safe) {
+      image.removeAttribute('src');
+      image.title = `Local image not found: ${source}`;
+      return false;
+    }
+    image.crossOrigin = 'anonymous';
+    image.src = safe;
+    try {
+      await image.decode();
+      return true;
+    } catch {
+      image.removeAttribute('src');
+      image.title = `Local image could not be decoded: ${source}`;
+      return false;
+    }
+  }
+
   async function renderDocument(payload) {
     document.title = payload.title ? `${payload.title} — DownToRead` : 'DownToRead';
+    document.documentElement.dataset.ready = 'false';
+    root.className = 'markdown-body';
+
+    if (payload.mode === 'text') {
+      root.className = 'markdown-body plain-text';
+      root.textContent = payload.text || '';
+      document.documentElement.dataset.ready = 'true';
+      return;
+    }
+
+    if (payload.mode === 'image') {
+      root.className = 'markdown-body image-document';
+      root.replaceChildren();
+      const image = document.createElement('img');
+      image.alt = payload.title || 'Image';
+      root.append(image);
+      await loadLocalImage(image, payload.source || '');
+      document.documentElement.dataset.ready = 'true';
+      return;
+    }
+
     const dirty = marked.parse(payload.markdown || '');
     root.innerHTML = DOMPurify.sanitize(dirty, { USE_PROFILES: { html: true }, FORBID_TAGS: ['script','style','iframe','object','embed','form'], FORBID_ATTR: ['style'] });
     assignHeadingIds();
     const imageLoads = [];
     for (const image of root.querySelectorAll('img')) {
       const source = image.getAttribute('src') || '';
-      const safe = await window.downToRead.assetUrl(source);
-      if (!safe) {
-        image.removeAttribute('src');
-        image.title = `Local image not found: ${source}`;
-        imageLoads.push(Promise.resolve(false));
-        continue;
-      }
-      image.src = safe;
-      imageLoads.push(image.decode().then(() => true).catch(() => {
-        image.removeAttribute('src');
-        image.title = `Local image could not be decoded: ${source}`;
-        return false;
-      }));
+      imageLoads.push(loadLocalImage(image, source));
     }
-    for (const anchor of root.querySelectorAll('a')) {
+    for (const anchor of root.querySelectorAll('a[href]')) {
       const href = anchor.getAttribute('href') || '';
       if (!href.startsWith('#')) anchor.addEventListener('click', async (event) => {
         event.preventDefault();
-        const opened = await window.downToRead.openDocumentLink(href);
-        if (!opened && /^https?:\/\//i.test(href)) await window.downToRead.openExternal(href);
+        await window.downToRead.openLink(href);
       });
     }
     try { await mermaid.run({ nodes: root.querySelectorAll('.mermaid'), suppressErrors: false }); }
-    catch (error) { for (const node of root.querySelectorAll('.mermaid[data-processed]')) node.classList.add('mermaid-error'); }
+    catch { for (const node of root.querySelectorAll('.mermaid[data-processed]')) node.classList.add('mermaid-error'); }
     const localImagesLoaded = (await Promise.all(imageLoads)).every(Boolean);
     if (payload.fragment) document.getElementById(payload.fragment)?.scrollIntoView();
     document.documentElement.dataset.ready = 'true';
@@ -68,6 +95,37 @@
       localImagesLoaded
     });
   }
+
+  async function copyImage(imageIndex) {
+    if (!Number.isInteger(imageIndex) || imageIndex < 0) return;
+    const image = root.querySelectorAll('img')[imageIndex];
+    if (!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return;
+    if (image.naturalWidth * image.naturalHeight > 40_000_000) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    try {
+      context.drawImage(image, 0, 0);
+      await window.downToRead.copyImageToClipboard(canvas.toDataURL('image/png'));
+    } catch { /* A failed copy leaves the clipboard unchanged. */ }
+  }
+
+  document.addEventListener('contextmenu', async (event) => {
+    event.preventDefault();
+    const element = event.target instanceof Element ? event.target : null;
+    const anchor = element?.closest('a[href]');
+    const image = element?.closest('img');
+    const images = Array.from(root.querySelectorAll('img'));
+    await window.downToRead.showContextMenu({
+      selectionText: String(window.getSelection()?.toString() || '').slice(0, 8192),
+      linkHref: String(anchor?.getAttribute('href') || '').slice(0, 8192),
+      imageIndex: image ? images.indexOf(image) : -1
+    });
+  });
+  window.downToRead.onCopyImageRequest(copyImage);
+
   document.addEventListener('dragover', (event) => event.preventDefault());
   document.addEventListener('drop', async (event) => {
     event.preventDefault();

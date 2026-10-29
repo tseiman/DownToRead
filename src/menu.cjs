@@ -13,6 +13,9 @@ function buildMenuTemplate({ platform = process.platform, command }) {
     item('Print…', 'CmdOrCtrl+P', COMMANDS.PRINT),
     { type: 'separator' }, { role: platform === 'darwin' ? 'close' : 'quit' }
   ] });
+  template.push({ label: 'Edit', submenu: [
+    { role: 'copy' }, { role: 'paste' }, { type: 'separator' }, { role: 'selectAll' }
+  ] });
   template.push({ label: 'View', submenu: [
     item('Zoom In', 'CmdOrCtrl+Plus', COMMANDS.ZOOM_IN),
     item('Zoom Out', 'CmdOrCtrl+-', COMMANDS.ZOOM_OUT),

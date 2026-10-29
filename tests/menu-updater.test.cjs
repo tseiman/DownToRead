@@ -3,12 +3,13 @@ const assert = require('node:assert/strict');
 const { buildMenuTemplate, COMMANDS } = require('../src/menu.cjs');
 const { configureUpdater } = require('../src/updater.cjs');
 
-test('native menu exposes open, print, zoom, update and no editing controls', () => {
+test('native menu exposes viewer commands and standard text editing shortcuts', () => {
   const called = [];
   const template = buildMenuTemplate({ platform: 'darwin', command: (name) => called.push(name) });
   const flattened = template.flatMap((menu) => menu.submenu || []);
   for (const label of ['Open…', 'Print…', 'Zoom In', 'Zoom Out', 'Actual Size', 'Check for Updates…']) assert.ok(flattened.some((item) => item.label === label));
-  assert.equal(template.some((menu) => menu.label === 'Edit'), false);
+  const editMenu = template.find((menu) => menu.label === 'Edit').submenu;
+  for (const role of ['copy', 'paste', 'selectAll']) assert.ok(editMenu.some((item) => item.role === role));
   const applicationMenu = template.find((menu) => menu.label === 'DownToRead').submenu;
   for (const role of ['services', 'hide', 'hideOthers', 'unhide']) assert.ok(applicationMenu.some((entry) => entry.role === role));
   assert.ok(template.some((menu) => menu.label === 'Window'));

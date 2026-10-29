@@ -38,20 +38,23 @@ test('main process handles cold start, open-file and second-instance', () => {
 
 test('CSP permits only the private asset protocol for rendered local images', () => {
   const html = read('src/index.html');
+  const main = read('src/main.cjs');
   assert.match(html, /img-src 'self' downtoread-asset:/);
   assert.doesNotMatch(html, /img-src[^;]*data:/);
+  assert.match(main, /allowedAssets\.add\(path\.resolve\(asset\)\)/);
+  assert.match(main, /allowedAssets\.has\(path\.resolve\(candidate\)\)/);
 });
 
 test('Markdown link navigation is delegated through the validated main-process path', () => {
   const preload = read('src/preload.cjs');
   const renderer = read('src/renderer.js');
   const main = read('src/main.cjs');
-  assert.match(preload, /openDocumentLink:\s*\(href\)\s*=>\s*ipcRenderer\.invoke\('open-document-link', href\)/);
-  assert.match(renderer, /downToRead\.openDocumentLink\(href\)/);
-  assert.match(main, /ipcMain\.handle\('open-document-link'/);
+  assert.match(preload, /openLink:\s*\(href\)\s*=>\s*ipcRenderer\.invoke\('open-link', href\)/);
+  assert.match(renderer, /downToRead\.openLink\(href\)/);
+  assert.match(main, /ipcMain\.handle\('open-link'/);
   assert.match(main, /discoverRepository\(sourceDocument\)/);
-  assert.match(main, /resolveDocumentLink\(sourceDocument/);
-  assert.match(main, /regularFile\(target\.path\)/);
+  assert.match(main, /resolveLocalFileLink\(sourceDocument/);
+  assert.match(main, /openReadableFile\(target\.path/);
 });
 
 test('document fragments use generated heading IDs after rendering', () => {
@@ -61,14 +64,14 @@ test('document fragments use generated heading IDs after rendering', () => {
   assert.match(renderer, /scrollIntoView\(\)/);
 });
 
-test('filesystem drag and drop opens one validated Markdown file', () => {
+test('filesystem drag and drop opens one validated readable file', () => {
   const renderer = read('src/renderer.js');
   const main = read('src/main.cjs');
   assert.match(renderer, /addEventListener\('dragover'/);
   assert.match(renderer, /addEventListener\('drop'/);
   assert.match(renderer, /downToRead\.openDroppedFile/);
   assert.match(main, /ipcMain\.handle\('open-dropped-file'/);
-  assert.match(main, /return openDocument\(filePath\)/);
+  assert.match(main, /return openReadableFile\(filePath\)/);
 });
 
 test('smoke readiness requires local images to decode successfully', () => {
@@ -77,4 +80,38 @@ test('smoke readiness requires local images to decode successfully', () => {
   assert.match(renderer, /image\.decode\(\)/);
   assert.match(renderer, /localImagesLoaded/);
   assert.match(main, /result\.localImagesLoaded === true/);
+});
+
+test('safe raw HTML is sanitized instead of rendered as escaped source text', () => {
+  const renderer = read('src/renderer.js');
+  assert.doesNotMatch(renderer, /html\(\{ text \}\)/);
+  assert.match(renderer, /DOMPurify\.sanitize/);
+  assert.match(renderer, /FORBID_TAGS:\s*\['script','style','iframe','object','embed','form'\]/);
+});
+
+test('native context menu copies selection, links, and rasterized images', () => {
+  const preload = read('src/preload.cjs');
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.cjs');
+  assert.match(renderer, /addEventListener\('contextmenu'/);
+  assert.match(preload, /showContextMenu/);
+  assert.match(preload, /copyImageToClipboard/);
+  assert.match(main, /Copy Link/);
+  assert.match(main, /Copy Image/);
+  assert.match(main, /clipboard\.writeText/);
+  assert.match(main, /clipboard\.write\(/);
+  assert.match(main, /new ClipboardItem/);
+});
+
+test('executables are never opened and uncertain links require explicit confirmation', () => {
+  const main = read('src/main.cjs');
+  assert.match(main, /looksExecutable/);
+  assert.match(main, /Executable files are blocked/);
+  assert.match(main, /await pathIsInside\(trustedRoot, target\.path\)/);
+  assert.match(main, /It may expose private local data/);
+  assert.match(main, /BLOCKED_EXTERNAL_PROTOCOLS/);
+  assert.match(main, /ms-msdt:/);
+  assert.match(main, /buttons:\s*\['No', 'Yes'\]/);
+  assert.match(main, /defaultId:\s*0/);
+  assert.match(main, /cancelId:\s*0/);
 });

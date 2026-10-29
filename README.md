@@ -1,14 +1,16 @@
 # DownToRead
 
-DownToRead is a cross-platform, view-only Electron reader for local Markdown. It renders GitHub-Flavored Markdown, local SVG/PNG/JPEG/WebP/GIF images, and fenced Mermaid diagrams without running embedded HTML or scripts.
+DownToRead is a cross-platform, view-only Electron reader for local Markdown. It renders GitHub-Flavored Markdown, sanitized non-active HTML structures, local SVG/PNG/JPEG/WebP/GIF images, and fenced Mermaid diagrams without running embedded scripts.
 
 ## Features
 
-- Open `.md` and `.markdown` from the native **File → Open…** menu, drag and drop onto the application window, a shell command, an operating-system file association, macOS Finder, or a second application launch.
+- Open Markdown, readable UTF-8/UTF-16 text files, and supported images from the native **File → Open…** menu or by dragging one file onto the application window. Markdown file associations, macOS Finder, shell launches, and second application launches remain supported.
 - GitHub-Flavored Markdown including tables, task lists, autolinks, and strikethrough.
 - Relative and absolute local SVG/PNG/JPEG/WebP/GIF images plus fenced `mermaid` diagrams. Local images are decoded before rendering is reported complete; missing or invalid images retain descriptive fallback text.
-- Navigation between local Markdown files through relative links, repository-root links such as `/docs/setup.md`, and same-repository GitHub `blob` URLs. Heading fragments are supported.
-- Native application menus for Open, Print, Zoom In, Zoom Out, Actual Size, and Check for Updates. There is no document toolbar, editor, sidebar, search, tabs, or local server.
+- Navigation to local Markdown, text, source-code, and image files through relative or parent-relative links, repository-root links such as `/docs/setup.md`, file URLs, and same-repository GitHub `blob` URLs. Heading fragments are supported.
+- Safe inline HTML such as `<details>`, `<summary>`, and `<a>` is rendered after sanitization instead of appearing as source text.
+- Native context-menu commands copy selected text, links, and decoded images. Standard **Copy**, **Paste**, and **Select All** roles use `Ctrl` shortcuts on Windows/Linux and `Command` shortcuts on macOS.
+- Native application menus for Open, Print, Zoom In, Zoom Out, Actual Size, text clipboard roles, and Check for Updates. There is no document toolbar, editor, sidebar, search, tabs, or local server.
 - Native printing with print-focused reading styles.
 
 ## Clone and install
@@ -26,7 +28,7 @@ cd DownToRead
 npm ci
 ```
 
-The application only needs read permission for the Markdown documents and referenced local image files. Building needs write permission in the repository's `dist/` directory. Do not run npm or DownToRead as root.
+The application only needs read permission for opened documents and referenced local files. Building needs write permission in the repository's `dist/` directory. Do not run npm or DownToRead as root.
 
 ## Commands
 
@@ -92,20 +94,21 @@ Dropping exactly one `.md` or `.markdown` file onto the application window uses 
 
 ## Local repository navigation
 
-Links ending in `.md` or `.markdown` open in the existing viewer window. Relative paths are resolved from the current document. Paths beginning with `/` are resolved from the nearest Git checkout root. DownToRead discovers that root and the GitHub `origin` repository name from `.git` metadata; matching `https://github.com/<owner>/<repository>/blob/<ref>/...` links are therefore mapped back to the local checkout. Links to another repository remain external and open in the system browser.
+Readable local links open in the existing viewer window. Markdown is rendered, images are decoded as images, and ASCII/UTF-8/UTF-16 text and source files are shown as plain text. Relative and parent-relative paths are resolved from the current document; paths beginning with `/` are resolved from the nearest Git checkout root. DownToRead discovers that root and the GitHub `origin` repository name from `.git` metadata, so matching `https://github.com/<owner>/<repository>/blob/<ref>/...` links map back to local files. Links inside the current repository (or, for standalone documents, the current document folder) open without interruption; links outside that trusted root require an explicit **No/Yes** privacy warning. Normal HTTPS links open in the system browser. Unencrypted or non-HTTPS protocols and unrecognized binary documents also require an explicit **No/Yes** warning; **No** is the default. Known code-execution protocols, executable binaries, and installers are never opened or run. Readable scripts are displayed as plain text rather than executed.
 
 ## Security model
 
 DownToRead treats every document as untrusted:
 
 - Electron uses `contextIsolation: true`, `sandbox: true`, and `nodeIntegration: false`.
-- The preload exposes only document-ready, validated Markdown-navigation, local-image-resolution, and external-link operations.
+- The preload exposes only document-ready, validated file-navigation, local-image-resolution, context-menu, and clipboard operations.
 - A restrictive Content Security Policy blocks remote scripts, network connections, plugins, frames, and forms.
-- Marked is configured to escape raw HTML; DOMPurify sanitizes the generated DOM as defense in depth.
+- Marked accepts GitHub-style inline HTML, then DOMPurify removes scripts, event handlers, forms, frames, plugins, and other active content before it reaches the DOM.
 - Mermaid runs with `securityLevel: "strict"`.
 - Only supported local image extensions can be read through the private asset protocol.
-- Renderer navigation and new windows are denied. Local Markdown targets are extension- and existence-checked in the main process; only validated `http:` and `https:` links are delegated to the system browser.
-- IPC inputs are type-, length-, scheme-, extension-, and existence-checked in the main process.
+- Renderer navigation and new windows are denied. Local targets are existence-, type-, size-, encoding-, and executable-signature-checked in the main process. Readable content stays inside the viewer.
+- HTTPS links are delegated to the system browser. Riskier protocols and unknown binary file types require explicit confirmation, while `javascript:`, `data:`, `blob:`, executable binaries, and installers remain blocked.
+- IPC inputs are type-, length-, scheme-, size-, extension-, and existence-checked in the main process.
 
 DownToRead is a viewer, not a Markdown sandbox for arbitrary active content. Keep Electron and its rendering dependencies updated.
 
