@@ -5,7 +5,8 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, protocol, shell } = require('
 const { autoUpdater } = require('electron-updater');
 const { buildMenuTemplate, COMMANDS } = require('./menu.cjs');
 const { configureUpdater } = require('./updater.cjs');
-const { isMarkdownPath, parseLaunchPaths, resolveDocumentAsset } = require('./path-policy.cjs');
+const { isMarkdownPath, parseLaunchPaths, resolveDocumentAsset, resolveDocumentLink } = require('./path-policy.cjs');
+const { discoverRepository } = require('./repository-context.cjs');
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'downtoread-asset', privileges: { secure: true, standard: true, supportFetchAPI: true } }]);
 let mainWindow = null;
@@ -21,16 +22,16 @@ function mimeFor(filePath) {
 async function regularFile(filePath) {
   try { const stat = await fs.stat(filePath); return stat.isFile(); } catch { return false; }
 }
-async function openDocument(filePath) {
+async function openDocument(filePath, fragment = '') {
   const absolute = path.resolve(filePath);
   if (!isMarkdownPath(absolute) || !(await regularFile(absolute))) {
     if (app.isReady()) dialog.showErrorBox('Cannot open document', 'Choose an existing .md or .markdown file.');
     return false;
   }
-  currentDocument = absolute;
   const markdown = await fs.readFile(absolute, 'utf8');
+  currentDocument = absolute;
   if (!mainWindow) createWindow();
-  if (rendererReady) mainWindow.webContents.send('document', { title: path.basename(absolute), markdown });
+  if (rendererReady) mainWindow.webContents.send('document', { title: path.basename(absolute), markdown, fragment });
   else pendingPath = absolute;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show(); mainWindow.focus();
@@ -81,6 +82,14 @@ else {
       const asset = resolveDocumentAsset(currentDocument, source);
       if (!asset || !(await regularFile(asset))) return null;
       return `downtoread-asset://local/${Buffer.from(asset).toString('base64url')}`;
+    });
+    ipcMain.handle('open-document-link', async (_event, href) => {
+      if (typeof href !== 'string' || href.length > 8192 || !currentDocument) return false;
+      const sourceDocument = currentDocument;
+      const repository = await discoverRepository(sourceDocument);
+      const target = resolveDocumentLink(sourceDocument, href, repository?.root, repository?.slug);
+      if (!target || !(await regularFile(target.path))) return false;
+      return openDocument(target.path, target.fragment);
     });
     ipcMain.handle('open-external', async (_event, value) => {
       if (typeof value !== 'string' || value.length > 8192) return false;

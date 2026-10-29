@@ -8,6 +8,7 @@ const api = Object.freeze({
     return () => ipcRenderer.removeListener('document', listener);
   },
   assetUrl: (source) => ipcRenderer.invoke('asset-url', source),
+  openDocumentLink: (href) => ipcRenderer.invoke('open-document-link', href),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   ready: () => ipcRenderer.send('renderer-ready'),
   rendered: (result) => ipcRenderer.send('renderer-rendered', result)

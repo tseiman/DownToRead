@@ -7,6 +7,7 @@ DownToRead is a cross-platform, view-only Electron reader for local Markdown. It
 - Open `.md` and `.markdown` from the native **File → Open…** menu, a shell command, an operating-system file association, macOS Finder, or a second application launch.
 - GitHub-Flavored Markdown including tables, task lists, autolinks, and strikethrough.
 - Relative and absolute local images plus fenced `mermaid` diagrams.
+- Navigation between local Markdown files through relative links, repository-root links such as `/docs/setup.md`, and same-repository GitHub `blob` URLs. Heading fragments are supported.
 - Native application menus for Open, Print, Zoom In, Zoom Out, Actual Size, and Check for Updates. There is no document toolbar, editor, sidebar, search, tabs, or local server.
 - Native printing with print-focused reading styles.
 
@@ -25,7 +26,7 @@ cd DownToRead
 npm ci
 ```
 
-The application only needs read permission for the Markdown document and referenced local image files. Building needs write permission in the repository's `dist/` directory. Do not run npm or DownToRead as root.
+The application only needs read permission for the Markdown documents and referenced local image files. Building needs write permission in the repository's `dist/` directory. Do not run npm or DownToRead as root.
 
 ## Commands
 
@@ -87,17 +88,21 @@ npm run dist
 
 Installers register `.md` and `.markdown` as documents DownToRead can view. At runtime, cold-start arguments, Electron's macOS `open-file` event, and second-instance arguments all pass through the same extension and filesystem validation. One running process owns the viewer; later launches hand their document to it.
 
+## Local repository navigation
+
+Links ending in `.md` or `.markdown` open in the existing viewer window. Relative paths are resolved from the current document. Paths beginning with `/` are resolved from the nearest Git checkout root. DownToRead discovers that root and the GitHub `origin` repository name from `.git` metadata; matching `https://github.com/<owner>/<repository>/blob/<ref>/...` links are therefore mapped back to the local checkout. Links to another repository remain external and open in the system browser.
+
 ## Security model
 
 DownToRead treats every document as untrusted:
 
 - Electron uses `contextIsolation: true`, `sandbox: true`, and `nodeIntegration: false`.
-- The preload exposes only document-ready, local-image-resolution, and external-link operations.
+- The preload exposes only document-ready, validated Markdown-navigation, local-image-resolution, and external-link operations.
 - A restrictive Content Security Policy blocks remote scripts, network connections, plugins, frames, and forms.
 - Marked is configured to escape raw HTML; DOMPurify sanitizes the generated DOM as defense in depth.
 - Mermaid runs with `securityLevel: "strict"`.
 - Only supported local image extensions can be read through the private asset protocol.
-- Navigation and new windows are denied. Only validated `http:` and `https:` links are delegated to the system browser.
+- Renderer navigation and new windows are denied. Local Markdown targets are extension- and existence-checked in the main process; only validated `http:` and `https:` links are delegated to the system browser.
 - IPC inputs are type-, length-, scheme-, extension-, and existence-checked in the main process.
 
 DownToRead is a viewer, not a Markdown sandbox for arbitrary active content. Keep Electron and its rendering dependencies updated.
@@ -108,7 +113,7 @@ Packaged builds use `electron-updater` with the GitHub provider `tseiman/DownToR
 
 ## Releases
 
-Pushing a `v*` tag, or manually dispatching `.github/workflows/release.yml`, runs tests and builds on real GitHub-hosted Windows, macOS, and Ubuntu runners. Each matrix job publishes its platform installers and update metadata to the same tag release through `GITHUB_TOKEN`.
+Pushing a `v*` tag, or manually dispatching `.github/workflows/release.yml`, runs tests and builds on real GitHub-hosted Windows, macOS, and Ubuntu runners. A dependent release job collects the platform artifacts and publishes the installers and update metadata to the tag release through `GITHUB_TOKEN`.
 
 Windows produces an NSIS `.exe`; macOS produces `.dmg` and `.zip`; Linux produces `.AppImage` and `.deb`.
 

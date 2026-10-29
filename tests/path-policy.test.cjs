@@ -1,8 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { isMarkdownPath, isAllowedImagePath, parseLaunchPaths, resolveDocumentAsset } = require('../src/path-policy.cjs');
+const { discoverRepository } = require('../src/repository-context.cjs');
+const { isMarkdownPath, isAllowedImagePath, parseLaunchPaths, resolveDocumentAsset, resolveDocumentLink } = require('../src/path-policy.cjs');
 
 test('accepts Markdown extensions case-insensitively and rejects other files', () => {
   assert.equal(isMarkdownPath('/tmp/readme.MD'), true);
@@ -27,4 +30,66 @@ test('asset resolution decodes file URLs and rejects unsupported or malformed as
   assert.equal(resolveDocumentAsset(doc, 'https://example.com/x.png'), null);
   assert.equal(resolveDocumentAsset(doc, './page.html'), null);
   assert.equal(resolveDocumentAsset(doc, '%E0%A4%A'), null);
+});
+
+test('resolves relative Markdown links against the current document', () => {
+  const doc = path.resolve('repository', 'docs', 'readme.md');
+  assert.deepEqual(resolveDocumentLink(doc, '../CONTRIBUTING.markdown'), {
+    path: path.resolve('repository', 'CONTRIBUTING.markdown'),
+    fragment: ''
+  });
+});
+
+test('resolves repository-root Markdown links inside the detected checkout', () => {
+  const repository = path.resolve('repository');
+  const doc = path.join(repository, 'docs', 'readme.md');
+  assert.deepEqual(resolveDocumentLink(doc, '/guides/setup.md#install', repository), {
+    path: path.join(repository, 'guides', 'setup.md'),
+    fragment: 'install'
+  });
+});
+
+test('maps same-repository GitHub blob links to the local checkout', () => {
+  const repository = path.resolve('repository');
+  const doc = path.join(repository, 'README.md');
+  assert.deepEqual(
+    resolveDocumentLink(doc, 'https://github.com/example/project/blob/main/docs/setup.md#usage', repository, 'example/project'),
+    { path: path.join(repository, 'docs', 'setup.md'), fragment: 'usage' }
+  );
+  assert.equal(
+    resolveDocumentLink(doc, 'https://github.com/other/project/blob/main/docs/setup.md', repository, 'example/project'),
+    null
+  );
+});
+
+test('rejects relative Markdown links that escape a detected checkout', () => {
+  const repository = path.resolve('repository');
+  const doc = path.join(repository, 'docs', 'readme.md');
+  assert.equal(resolveDocumentLink(doc, '../../outside.md', repository), null);
+});
+
+test('discovers the checkout root and GitHub slug from .git metadata', async (t) => {
+  const root = await fs.mkdtemp(path.join(process.env.TMPDIR || os.tmpdir(), 'downtoread-repo-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, '.git'));
+  await fs.writeFile(path.join(root, '.git', 'config'), '[remote "origin"]\n\turl = git@github.com:example/project.git\n');
+  const document = path.join(root, 'docs', 'guide.md');
+  assert.deepEqual(await discoverRepository(document), { root, slug: 'example/project' });
+});
+
+test('discovers repository metadata from a linked worktree .git file', async (t) => {
+  const base = await fs.mkdtemp(path.join(process.env.TMPDIR || os.tmpdir(), 'downtoread-worktree-'));
+  t.after(() => fs.rm(base, { recursive: true, force: true }));
+  const root = path.join(base, 'checkout');
+  const commonGit = path.join(base, 'main.git');
+  const worktreeGit = path.join(commonGit, 'worktrees', 'checkout');
+  await fs.mkdir(worktreeGit, { recursive: true });
+  await fs.mkdir(root);
+  await fs.writeFile(path.join(root, '.git'), `gitdir: ${worktreeGit}\n`);
+  await fs.writeFile(path.join(worktreeGit, 'commondir'), '../..\n');
+  await fs.writeFile(path.join(commonGit, 'config'), '[remote "origin"]\n\turl = https://github.com/example/worktree.git\n');
+  assert.deepEqual(await discoverRepository(path.join(root, 'docs', 'guide.md')), {
+    root,
+    slug: 'example/worktree'
+  });
 });

@@ -39,3 +39,22 @@ test('CSP permits only the private asset protocol for rendered local images', ()
   assert.match(html, /img-src 'self' downtoread-asset:/);
   assert.doesNotMatch(html, /img-src[^;]*data:/);
 });
+
+test('Markdown link navigation is delegated through the validated main-process path', () => {
+  const preload = read('src/preload.cjs');
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.cjs');
+  assert.match(preload, /openDocumentLink:\s*\(href\)\s*=>\s*ipcRenderer\.invoke\('open-document-link', href\)/);
+  assert.match(renderer, /downToRead\.openDocumentLink\(href\)/);
+  assert.match(main, /ipcMain\.handle\('open-document-link'/);
+  assert.match(main, /discoverRepository\(sourceDocument\)/);
+  assert.match(main, /resolveDocumentLink\(sourceDocument/);
+  assert.match(main, /regularFile\(target\.path\)/);
+});
+
+test('document fragments use generated heading IDs after rendering', () => {
+  const renderer = read('src/renderer.js');
+  assert.match(renderer, /assignHeadingIds\(\)/);
+  assert.match(renderer, /getElementById\(payload\.fragment\)/);
+  assert.match(renderer, /scrollIntoView\(\)/);
+});

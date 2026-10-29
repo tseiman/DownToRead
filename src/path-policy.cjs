@@ -34,4 +34,40 @@ function resolveDocumentAsset(documentPath, input) {
   } catch { return null; }
 }
 
-module.exports = { IMAGE_EXTENSIONS, MARKDOWN_EXTENSIONS, isAllowedImagePath, isMarkdownPath, parseLaunchPaths, resolveDocumentAsset };
+function resolveDocumentLink(documentPath, input, repositoryRoot = null, repositorySlug = null) {
+  if (!isMarkdownPath(documentPath) || typeof input !== 'string') return null;
+  try {
+    let decodedPath;
+    let fragment = '';
+    if (/^https?:/i.test(input)) {
+      if (typeof repositoryRoot !== 'string' || typeof repositorySlug !== 'string') return null;
+      const url = new URL(input);
+      const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+      const linkedSlug = segments.slice(0, 2).join('/');
+      if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'github.com' || linkedSlug.toLowerCase() !== repositorySlug.toLowerCase() || segments[2] !== 'blob' || segments.length < 5) return null;
+      decodedPath = `/${segments.slice(4).join('/')}`;
+      fragment = decodeURIComponent(url.hash.slice(1));
+    } else {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(input) || input.startsWith('#')) return null;
+      const parts = input.split('#', 2);
+      decodedPath = decodeURIComponent(parts[0].split('?', 1)[0]);
+      fragment = decodeURIComponent(parts[1] || '');
+    }
+    let target;
+    if (decodedPath.startsWith('/')) {
+      if (typeof repositoryRoot !== 'string') return null;
+      target = path.resolve(repositoryRoot, `.${decodedPath}`);
+      const relative = path.relative(path.resolve(repositoryRoot), target);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+    } else {
+      target = path.resolve(path.dirname(documentPath), decodedPath);
+    }
+    if (typeof repositoryRoot === 'string') {
+      const relative = path.relative(path.resolve(repositoryRoot), target);
+      if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+    }
+    return isMarkdownPath(target) ? { path: path.normalize(target), fragment } : null;
+  } catch { return null; }
+}
+
+module.exports = { IMAGE_EXTENSIONS, MARKDOWN_EXTENSIONS, isAllowedImagePath, isMarkdownPath, parseLaunchPaths, resolveDocumentAsset, resolveDocumentLink };
