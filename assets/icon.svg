@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">DownToRead</title><desc id="desc">A folded Markdown document with an eye reading motif</desc>
+<defs><linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2f81f7"/><stop offset="1" stop-color="#1457b8"/></linearGradient></defs>
+<rect x="92" y="56" width="840" height="912" rx="176" fill="#0d1117"/>
+<path id="document" d="M240 154h360l184 184v532H240z" fill="url(#paper)"/>
+<path id="fold" d="M600 154v184h184" fill="#8cceff" stroke="#d9f1ff" stroke-width="20" stroke-linejoin="round"/>
+<text id="markdown-letter" x="320" y="562" font-family="system-ui,sans-serif" font-size="174" font-weight="800" fill="#fff">M</text><path id="markdown" d="M530 430h54v82h42l-69 78-69-78h42z" fill="#fff"/>
+<path id="eye" d="M286 710c65-94 137-136 226-136s161 42 226 136c-65 94-137 136-226 136S351 804 286 710z" fill="#fff" stroke="#0d1117" stroke-width="18"/>
+<circle cx="512" cy="710" r="76" fill="#0d1117"/><circle cx="536" cy="682" r="22" fill="#8cceff"/>
+</svg>

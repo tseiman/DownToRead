@@ -1,0 +1,50 @@
+{
+  "name": "downtoread",
+  "version": "0.1.0",
+  "description": "A secure, view-only desktop Markdown reader",
+  "desktopName": "DownToRead",
+  "main": "src/main.cjs",
+  "author": "tseiman",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "test:smoke": "node scripts/run-smoke.cjs",
+    "lint": "node scripts/check-syntax.cjs",
+    "icons": "node scripts/build-icons.cjs",
+    "start": "electron .",
+    "pack:linux": "electron-builder --linux dir",
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "dist": "electron-builder -mwl"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "png-to-ico": "3.0.2",
+    "png2icons": "2.0.1",
+    "sharp": "0.35.5"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "electron-updater": "6.8.11",
+    "marked": "18.1.2",
+    "mermaid": "12.2.0"
+  },
+  "build": {
+    "appId": "de.tseiman.downtoread",
+    "productName": "DownToRead",
+    "asar": true,
+    "files": ["src/**/*", "assets/**/*", "package.json", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+    "directories": { "buildResources": "build", "output": "dist" },
+    "icon": "build/icon.png",
+    "fileAssociations": [
+      { "ext": "md", "name": "Markdown document", "role": "Viewer" },
+      { "ext": "markdown", "name": "Markdown document", "role": "Viewer" }
+    ],
+    "win": { "target": ["nsis"], "icon": "build/icon.ico" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "mac": { "target": ["dmg", "zip"], "icon": "build/icon.icns", "category": "public.app-category.productivity", "hardenedRuntime": true },
+    "linux": { "target": ["AppImage", "deb"], "icon": "build/icons", "category": "Office", "maintainer": "tseiman <tseiman@users.noreply.github.com>", "executableName": "downtoread", "synopsis": "Secure view-only Markdown reader", "syncDesktopName": true },
+    "publish": [{ "provider": "github", "owner": "tseiman", "repo": "DownToRead" }]
+  }
+}

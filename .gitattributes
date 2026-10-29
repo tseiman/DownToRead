@@ -1,0 +1,2 @@
+# Preserve vendored upstream bytes; Mermaid embeds shader/template lines with trailing spaces.
+src/vendor/mermaid.min.js whitespace=-trailing-space
