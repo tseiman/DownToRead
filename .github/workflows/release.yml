@@ -7,21 +7,41 @@ permissions:
   contents: write
 jobs:
   build:
+    env:
+      HAS_MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - name: Build and publish platform artifacts
+      - name: Build and publish Windows/Linux artifacts
+        if: matrix.os != 'macos-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          npx electron-builder --publish always 2>&1 | tee electron-builder.log
+      - name: Build and publish unsigned macOS artifacts
+        if: matrix.os == 'macos-latest' && env.HAS_MAC_CERTIFICATE != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          set -o pipefail
+          npx electron-builder --publish always 2>&1 | tee electron-builder.log
+      - name: Build and publish signed macOS artifacts
+        if: matrix.os == 'macos-latest' && env.HAS_MAC_CERTIFICATE == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,8 +50,10 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npx electron-builder --publish always
-      - uses: actions/upload-artifact@v4
+        run: |
+          set -o pipefail
+          npx electron-builder --publish always 2>&1 | tee electron-builder.log
+      - uses: actions/upload-artifact@v7
         with:
           name: installers-${{ matrix.os }}
           path: |
@@ -44,6 +66,15 @@ jobs:
             dist/latest*.yaml
             dist/*.blockmap
           if-no-files-found: error
+      - name: Report release builder failure
+        if: failure()
+        shell: bash
+        run: |
+          error_line=$(grep -E '⨯|Error:|ERR!' electron-builder.log 2>/dev/null | tail -n 1 || true)
+          if [ -z "$error_line" ]; then
+            error_line="A release step failed before electron-builder produced a diagnostic."
+          fi
+          echo "::error title=Release build failed on ${{ matrix.os }}::$error_line"
 # electron-builder publishes latest-linux.yml, latest-mac.yml and latest.yml
-# into the single tag release. Empty macOS signing secrets intentionally produce
-# an unsigned fallback; populated secrets enable signing and notarization.
+# into the single tag release. Empty macOS signing secrets use an explicit
+# unsigned path; populated secrets enable signing and notarization.
