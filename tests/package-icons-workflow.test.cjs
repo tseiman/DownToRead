@@ -29,7 +29,8 @@ test('package and release workflow cover every requested platform and artifact',
   assert.equal(pkg.build.nsis.artifactName, '${productName}-Setup-${version}.${ext}');
   assert.deepEqual(pkg.build.fileAssociations.map((x) => x.ext), ['md', 'markdown']);
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
-  for (const text of ['windows-latest','macos-latest','ubuntu-latest','workflow_dispatch','tags:','CSC_LINK','latest-linux.yml','actions/checkout@v7','actions/setup-node@v7','actions/upload-artifact@v7','actions/download-artifact@v7','softprops/action-gh-release@v2','CSC_IDENTITY_AUTO_DISCOVERY','--publish never','needs: build','merge-multiple: true']) assert.match(workflow, new RegExp(text));
+  for (const text of ['windows-latest','macos-15-intel','ubuntu-latest','workflow_dispatch','tags:','CSC_LINK','latest-linux.yml','actions/checkout@v7','actions/setup-node@v7','actions/upload-artifact@v7','actions/download-artifact@v7','softprops/action-gh-release@v2','CSC_IDENTITY_AUTO_DISCOVERY','--publish never','--mac --x64 --arm64','needs: build','merge-multiple: true']) assert.match(workflow, new RegExp(text));
+  assert.doesNotMatch(workflow, /macos-latest/);
   assert.doesNotMatch(workflow, /--publish always/);
   assert.doesNotMatch(workflow, /latest\*\.yaml/);
   const releaseJobPattern = /release:\r?\n\s+if: startsWith\(github\.ref, 'refs\/tags\/'\)\r?\n\s+needs: build\r?\n\s+permissions:\r?\n\s+contents: write/;

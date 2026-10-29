@@ -115,7 +115,7 @@ Packaged builds use `electron-updater` with the GitHub provider `tseiman/DownToR
 
 Pushing a `v*` tag, or manually dispatching `.github/workflows/release.yml`, runs tests and builds on real GitHub-hosted Windows, macOS, and Ubuntu runners. A dependent release job collects the platform artifacts and publishes the installers and update metadata to the tag release through `GITHUB_TOKEN`.
 
-Windows produces an NSIS `.exe`; macOS produces `.dmg` and `.zip`; Linux produces `.AppImage` and `.deb`.
+Windows produces an NSIS `.exe`; macOS produces separate Intel x64 and Apple Silicon arm64 `.dmg` and `.zip` packages; Linux produces `.AppImage` and `.deb`.
 
 ### Optional macOS signing and notarization
 

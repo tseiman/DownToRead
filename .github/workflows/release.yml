@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, macos-15-intel, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -24,21 +24,21 @@ jobs:
       - run: npm test
       - run: npm run lint
       - name: Build Windows/Linux artifacts
-        if: matrix.os != 'macos-latest'
+        if: matrix.os != 'macos-15-intel'
         shell: bash
         run: |
           set -o pipefail
           npx electron-builder --publish never 2>&1 | tee electron-builder.log
       - name: Build unsigned macOS artifacts
-        if: matrix.os == 'macos-latest' && env.HAS_MAC_CERTIFICATE != 'true'
+        if: matrix.os == 'macos-15-intel' && env.HAS_MAC_CERTIFICATE != 'true'
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           set -o pipefail
-          npx electron-builder --publish never 2>&1 | tee electron-builder.log
+          npx electron-builder --mac --x64 --arm64 --publish never 2>&1 | tee electron-builder.log
       - name: Build signed macOS artifacts
-        if: matrix.os == 'macos-latest' && env.HAS_MAC_CERTIFICATE == 'true'
+        if: matrix.os == 'macos-15-intel' && env.HAS_MAC_CERTIFICATE == 'true'
         shell: bash
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
@@ -48,7 +48,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -o pipefail
-          npx electron-builder --publish never 2>&1 | tee electron-builder.log
+          npx electron-builder --mac --x64 --arm64 --publish never 2>&1 | tee electron-builder.log
       - uses: actions/upload-artifact@v7
         with:
           name: installers-${{ matrix.os }}
@@ -98,4 +98,5 @@ jobs:
 # The matrix produces latest-linux.yml, latest-mac.yml and latest.yml. A single
 # dependent job publishes all platforms atomically into one release. Empty
 # macOS signing secrets use an explicit unsigned path; populated secrets enable
-# signing and notarization.
+# signing and notarization. The Intel runner emits both x64 and arm64 packages
+# together so latest-mac.yml contains update entries for both architectures.
