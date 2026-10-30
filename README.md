@@ -9,7 +9,7 @@ DownToRead is a cross-platform, view-only Electron reader for local Markdown. It
 - Relative and absolute local SVG/PNG/JPEG/WebP/GIF images plus fenced `mermaid` diagrams. Local images are decoded before rendering is reported complete; missing or invalid images retain descriptive fallback text.
 - Navigation to local Markdown, text, source-code, and image files through relative or parent-relative links, repository-root links such as `/docs/setup.md`, file URLs, and same-repository GitHub `blob` URLs. Heading fragments are supported.
 - Safe inline HTML such as `<details>`, `<summary>`, and `<a>` is rendered after sanitization instead of appearing as source text.
-- Session navigation keeps an in-memory Back/Forward history and remembers the first file as the Start Page. A bottom-center glass control appears only while its hover area or keyboard focus is active; the same commands are available from the native **Navigate** menu.
+- Session navigation keeps an in-memory Back/Forward history and remembers the first file as the Start Page. A bottom-center ice-glass control with pointer-responsive lighting appears only while its hover area or keyboard focus is active; touch devices keep it visible. The same commands are available from the native **Navigate** menu.
 - Native context-menu commands copy selected text, links, and decoded images. Standard **Copy**, **Paste**, and **Select All** roles use `Ctrl` shortcuts on Windows/Linux and `Command` shortcuts on macOS.
 - Native application menus for Open, Print, Back, Start Page, Forward, Zoom In, Zoom Out, Actual Size, text clipboard roles, and Check for Updates. There is no persistent document toolbar, editor, sidebar, search, tabs, or local server.
 - Native printing with print-focused reading styles.

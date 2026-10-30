@@ -1,5 +1,6 @@
 (() => {
   const root = document.getElementById('document');
+  const historyZone = document.getElementById('history-hover-zone');
   const historyBack = document.getElementById('history-back');
   const historyHome = document.getElementById('history-home');
   const historyForward = document.getElementById('history-forward');
@@ -135,6 +136,11 @@
     });
   });
   window.downToRead.onCopyImageRequest(copyImage);
+  historyZone.addEventListener('pointermove', (event) => {
+    const box = historyZone.getBoundingClientRect();
+    const lightX = Math.max(0, Math.min(100, ((event.clientX - box.left) / box.width) * 100));
+    historyZone.style.setProperty('--light-x', `${lightX}%`);
+  });
   historyBack.addEventListener('click', () => window.downToRead.navigateHistory('back'));
   historyHome.addEventListener('click', () => window.downToRead.navigateHistory('home'));
   historyForward.addEventListener('click', () => window.downToRead.navigateHistory('forward'));

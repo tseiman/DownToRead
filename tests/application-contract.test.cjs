@@ -110,10 +110,17 @@ test('hover navigation exposes session back, start, and forward without print or
   const renderer = read('src/renderer.js');
   const main = read('src/main.cjs');
   for (const id of ['history-hover-zone', 'history-back', 'history-home', 'history-forward']) assert.match(html, new RegExp(`id="${id}"`));
-  assert.match(css, /\.history-hover-zone\{[^}]*opacity:0/);
+  assert.match(html, /class="history-core"/);
+  assert.match(html, /<svg[^>]+viewBox="0 0 24 24"/);
+  assert.match(css, /\.history-controls\{[^}]*opacity:0/);
+  assert.match(css, /transition:opacity \.75s ease-in-out/);
+  assert.match(css, /var\(--light-x,35%\)/);
+  assert.match(css, /@media\(hover:none\)/);
   assert.match(css, /\.history-hover-zone:hover/);
   assert.match(css, /@media print\{[^}]*\.history-hover-zone\{display:none!important\}/);
   assert.match(css, /user-select:none/);
+  assert.match(renderer, /addEventListener\('pointermove'/);
+  assert.match(renderer, /style\.setProperty\('--light-x'/);
   assert.match(preload, /navigateHistory:\s*\(action\)\s*=>\s*ipcRenderer\.invoke\('navigate-history', action\)/);
   assert.match(renderer, /setHistoryState\(payload\.history\)/);
   assert.match(renderer, /history-back/);
