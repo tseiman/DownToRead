@@ -21,6 +21,7 @@ const api = Object.freeze({
     } catch { return Promise.resolve(false); }
   },
   openLink: (href) => ipcRenderer.invoke('open-link', href),
+  navigateHistory: (action) => ipcRenderer.invoke('navigate-history', action),
   showContextMenu: (context) => ipcRenderer.invoke('show-context-menu', context),
   copyImageToClipboard: (dataUrl) => ipcRenderer.invoke('copy-image-to-clipboard', dataUrl),
   ready: () => ipcRenderer.send('renderer-ready'),

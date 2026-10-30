@@ -7,14 +7,17 @@ test('native menu exposes viewer commands and standard text editing shortcuts', 
   const called = [];
   const template = buildMenuTemplate({ platform: 'darwin', command: (name) => called.push(name) });
   const flattened = template.flatMap((menu) => menu.submenu || []);
-  for (const label of ['Open…', 'Print…', 'Zoom In', 'Zoom Out', 'Actual Size', 'Check for Updates…']) assert.ok(flattened.some((item) => item.label === label));
+  for (const label of ['Open…', 'Print…', 'Back', 'Start Page', 'Forward', 'Zoom In', 'Zoom Out', 'Actual Size', 'Check for Updates…']) assert.ok(flattened.some((item) => item.label === label));
   const editMenu = template.find((menu) => menu.label === 'Edit').submenu;
   for (const role of ['copy', 'paste', 'selectAll']) assert.ok(editMenu.some((item) => item.role === role));
   const applicationMenu = template.find((menu) => menu.label === 'DownToRead').submenu;
   for (const role of ['services', 'hide', 'hideOthers', 'unhide']) assert.ok(applicationMenu.some((entry) => entry.role === role));
   assert.ok(template.some((menu) => menu.label === 'Window'));
   flattened.find((item) => item.label === 'Print…').click();
-  assert.deepEqual(called, [COMMANDS.PRINT]);
+  flattened.find((item) => item.label === 'Back').click();
+  flattened.find((item) => item.label === 'Start Page').click();
+  flattened.find((item) => item.label === 'Forward').click();
+  assert.deepEqual(called, [COMMANDS.PRINT, COMMANDS.BACK, COMMANDS.HOME, COMMANDS.FORWARD]);
 });
 
 test('updater disables silent download/install and reports manual outcomes through dialogs', async () => {

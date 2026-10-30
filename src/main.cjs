@@ -7,6 +7,7 @@ const { buildMenuTemplate, COMMANDS } = require('./menu.cjs');
 const { configureUpdater } = require('./updater.cjs');
 const { classifyLocalPath, parseLaunchPaths, resolveDocumentAsset, resolveLocalFileLink } = require('./path-policy.cjs');
 const { discoverRepository } = require('./repository-context.cjs');
+const { NavigationHistory } = require('./navigation-history.cjs');
 
 const MAX_TEXT_BYTES = 32 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
@@ -19,9 +20,12 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'downtoread-asset', privileges: 
 let mainWindow = null;
 let currentDocument = null;
 let allowedAssets = new Set();
+const navigationHistory = new NavigationHistory();
+let historyNavigationPending = false;
 let rendererReady = false;
 let pendingPath = null;
 let pendingFragment = '';
+let pendingHistoryMode = 'push';
 
 function mimeFor(filePath) {
   return ({ '.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif' })[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
@@ -77,10 +81,11 @@ function showWindow() {
   mainWindow.focus();
 }
 
-function sendDocument(absolute, payload) {
+function sendDocument(absolute, payload, historyMode = 'push') {
   currentDocument = absolute;
   allowedAssets = new Set();
-  mainWindow.webContents.send('document', { title: path.basename(absolute), ...payload });
+  if (historyMode === 'push') navigationHistory.push(absolute, payload.fragment || '');
+  mainWindow.webContents.send('document', { title: path.basename(absolute), ...payload, history: navigationHistory.state() });
   showWindow();
 }
 
@@ -107,7 +112,7 @@ async function openWithSystemApplication(filePath) {
   return true;
 }
 
-async function openReadableFile(filePath, fragment = '') {
+async function openReadableFile(filePath, fragment = '', historyMode = 'push') {
   const absolute = path.resolve(filePath);
   const stat = await fileInfo(absolute);
   if (!stat) {
@@ -125,13 +130,14 @@ async function openReadableFile(filePath, fragment = '') {
     currentDocument = absolute;
     pendingPath = absolute;
     pendingFragment = fragment;
+    pendingHistoryMode = historyMode;
     showWindow();
     return true;
   }
 
   if (kind === 'image') {
     if (stat.size > MAX_IMAGE_BYTES) { dialog.showErrorBox('Image is too large', 'Images larger than 100 MiB are not loaded.'); return false; }
-    sendDocument(absolute, { mode: 'image', source: pathToFileURL(absolute).href });
+    sendDocument(absolute, { mode: 'image', source: pathToFileURL(absolute).href }, historyMode);
     return true;
   }
 
@@ -139,7 +145,7 @@ async function openReadableFile(filePath, fragment = '') {
     if (stat.size > MAX_TEXT_BYTES) { dialog.showErrorBox('Text file is too large', 'Text files larger than 32 MiB are not loaded.'); return false; }
     try {
       const text = decodeReadableText(await fs.readFile(absolute));
-      sendDocument(absolute, kind === 'markdown' ? { mode: 'markdown', markdown: text, fragment } : { mode: 'text', text });
+      sendDocument(absolute, kind === 'markdown' ? { mode: 'markdown', markdown: text, fragment } : { mode: 'text', text }, historyMode);
       return true;
     } catch {
       dialog.showErrorBox('Cannot read text file', 'The file is not valid UTF-8, UTF-16LE, or UTF-16BE text.');
@@ -150,7 +156,7 @@ async function openReadableFile(filePath, fragment = '') {
   if (stat.size <= MAX_TEXT_BYTES) {
     try {
       const text = decodeReadableText(await fs.readFile(absolute));
-      sendDocument(absolute, { mode: 'text', text });
+      sendDocument(absolute, { mode: 'text', text }, historyMode);
       return true;
     } catch { /* Binary, non-executable files require confirmation below. */ }
   }
@@ -163,7 +169,12 @@ function createWindow() {
   }});
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => { if (url !== mainWindow.webContents.getURL()) event.preventDefault(); });
-  mainWindow.on('closed', () => { mainWindow = null; rendererReady = false; });
+  mainWindow.on('closed', () => {
+    const current = navigationHistory.current();
+    if (current) { pendingPath = current.path; pendingFragment = current.fragment; pendingHistoryMode = 'traverse'; }
+    mainWindow = null;
+    rendererReady = false;
+  });
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
 }
@@ -176,8 +187,26 @@ async function chooseDocument() {
   if (!result.canceled && result.filePaths[0]) await openReadableFile(result.filePaths[0]);
 }
 
+async function navigateHistory(action) {
+  if (historyNavigationPending || !['back', 'home', 'forward'].includes(action)) return false;
+  const previousIndex = navigationHistory.position();
+  const target = navigationHistory.move(action);
+  if (!target) return false;
+  historyNavigationPending = true;
+  try {
+    const opened = await openReadableFile(target.path, target.fragment, 'traverse');
+    if (!opened) navigationHistory.restore(previousIndex);
+    return opened;
+  } catch {
+    navigationHistory.restore(previousIndex);
+    dialog.showErrorBox('Cannot navigate', 'The history target could not be read.');
+    return false;
+  } finally { historyNavigationPending = false; }
+}
+
 function executeCommand(name) {
   if (name === COMMANDS.OPEN) return chooseDocument();
+  if ([COMMANDS.BACK, COMMANDS.HOME, COMMANDS.FORWARD].includes(name)) return navigateHistory(name.slice('history-'.length));
   if (!mainWindow) return undefined;
   if (name === COMMANDS.PRINT) return mainWindow.webContents.print({ printBackground: true });
   if (name === COMMANDS.ZOOM_IN) mainWindow.webContents.setZoomLevel(mainWindow.webContents.getZoomLevel() + 0.5);
@@ -263,6 +292,7 @@ else {
       if (typeof filePath !== 'string' || filePath.length > 8192) return false;
       return openReadableFile(filePath);
     });
+    ipcMain.handle('navigate-history', (_event, action) => navigateHistory(action));
     ipcMain.handle('show-context-menu', (event, context) => contextMenuFor(event, context));
     ipcMain.handle('copy-image-to-clipboard', async (_event, dataUrl) => {
       const prefix = 'data:image/png;base64,';
@@ -279,9 +309,11 @@ else {
       rendererReady = true;
       const next = pendingPath;
       const fragment = pendingFragment;
+      const historyMode = pendingHistoryMode;
       pendingPath = null;
       pendingFragment = '';
-      if (next) await openReadableFile(next, fragment);
+      pendingHistoryMode = 'push';
+      if (next) await openReadableFile(next, fragment, historyMode);
     });
     ipcMain.on('renderer-rendered', (_event, result) => {
       if (process.env.DTR_SMOKE !== '1') return;

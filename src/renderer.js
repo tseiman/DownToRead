@@ -1,5 +1,8 @@
 (() => {
   const root = document.getElementById('document');
+  const historyBack = document.getElementById('history-back');
+  const historyHome = document.getElementById('history-home');
+  const historyForward = document.getElementById('history-forward');
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const renderer = {
     code({ text, lang }) {
@@ -45,8 +48,15 @@
     }
   }
 
+  function setHistoryState(state) {
+    historyBack.disabled = !state?.canBack;
+    historyHome.disabled = !state?.canHome;
+    historyForward.disabled = !state?.canForward;
+  }
+
   async function renderDocument(payload) {
     document.title = payload.title ? `${payload.title} — DownToRead` : 'DownToRead';
+    setHistoryState(payload.history);
     document.documentElement.dataset.ready = 'false';
     root.className = 'markdown-body';
 
@@ -125,6 +135,9 @@
     });
   });
   window.downToRead.onCopyImageRequest(copyImage);
+  historyBack.addEventListener('click', () => window.downToRead.navigateHistory('back'));
+  historyHome.addEventListener('click', () => window.downToRead.navigateHistory('home'));
+  historyForward.addEventListener('click', () => window.downToRead.navigateHistory('forward'));
 
   document.addEventListener('dragover', (event) => event.preventDefault());
   document.addEventListener('drop', async (event) => {

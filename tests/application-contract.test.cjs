@@ -103,6 +103,26 @@ test('native context menu copies selection, links, and rasterized images', () =>
   assert.match(main, /new ClipboardItem/);
 });
 
+test('hover navigation exposes session back, start, and forward without print or copy output', () => {
+  const html = read('src/index.html');
+  const css = read('src/reader.css');
+  const preload = read('src/preload.cjs');
+  const renderer = read('src/renderer.js');
+  const main = read('src/main.cjs');
+  for (const id of ['history-hover-zone', 'history-back', 'history-home', 'history-forward']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(css, /\.history-hover-zone\{[^}]*opacity:0/);
+  assert.match(css, /\.history-hover-zone:hover/);
+  assert.match(css, /@media print\{[^}]*\.history-hover-zone\{display:none!important\}/);
+  assert.match(css, /user-select:none/);
+  assert.match(preload, /navigateHistory:\s*\(action\)\s*=>\s*ipcRenderer\.invoke\('navigate-history', action\)/);
+  assert.match(renderer, /setHistoryState\(payload\.history\)/);
+  assert.match(renderer, /history-back/);
+  assert.match(renderer, /history-home/);
+  assert.match(renderer, /history-forward/);
+  assert.match(main, /new NavigationHistory\(\)/);
+  assert.match(main, /ipcMain\.handle\('navigate-history'/);
+});
+
 test('executables are never opened and uncertain links require explicit confirmation', () => {
   const main = read('src/main.cjs');
   assert.match(main, /looksExecutable/);

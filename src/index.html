@@ -7,6 +7,14 @@
   <title>DownToRead</title>
   <link rel="stylesheet" href="reader.css">
 </head>
-<body><main id="document" class="markdown-body" aria-live="polite"><p class="empty">Open a Markdown document to begin.</p></main>
+<body>
+<main id="document" class="markdown-body" aria-live="polite"><p class="empty">Open a Markdown document to begin.</p></main>
+<nav id="history-hover-zone" class="history-hover-zone" aria-label="Document history">
+  <div class="history-controls">
+    <button id="history-back" type="button" aria-label="Back" title="Back" disabled><span aria-hidden="true">←</span></button>
+    <button id="history-home" type="button" aria-label="Start page" title="Start page" disabled><span aria-hidden="true">○</span></button>
+    <button id="history-forward" type="button" aria-label="Forward" title="Forward" disabled><span aria-hidden="true">→</span></button>
+  </div>
+</nav>
 <script src="vendor/marked.umd.js"></script><script src="vendor/purify.min.js"></script><script src="vendor/mermaid.min.js"></script><script src="renderer.js"></script>
 </body></html>
