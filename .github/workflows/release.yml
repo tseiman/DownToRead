@@ -49,6 +49,32 @@ jobs:
         run: |
           set -o pipefail
           npx electron-builder --mac --x64 --arm64 --publish never 2>&1 | tee electron-builder.log
+      - name: Verify macOS ZIP bundles and architectures
+        if: matrix.os == 'macos-15-intel'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          verify_zip() {
+            zip_path=$1
+            expected_arch=$2
+            destination="$work/$expected_arch"
+            mkdir "$destination"
+            /usr/bin/ditto -x -k "$zip_path" "$destination"
+            shopt -s nullglob
+            apps=("$destination"/*.app)
+            test "${#apps[@]}" -eq 1
+            test "$(basename "${apps[0]}")" = 'DownToRead.app'
+            archs=$(lipo -archs "${apps[0]}/Contents/MacOS/DownToRead")
+            case " $archs " in
+              *" $expected_arch "*) ;;
+              *) echo "Expected $expected_arch in $zip_path, got: $archs" >&2; exit 1 ;;
+            esac
+          }
+          verify_zip "dist/DownToRead-${version}-mac.zip" x86_64
+          verify_zip "dist/DownToRead-${version}-arm64-mac.zip" arm64
       - uses: actions/upload-artifact@v7
         with:
           name: installers-${{ matrix.os }}
@@ -77,11 +103,19 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - uses: actions/download-artifact@v7
         with:
           pattern: installers-*
           path: release-assets
           merge-multiple: true
+      - name: Sign macOS update metadata
+        env:
+          MAC_UPDATE_PRIVATE_KEY_B64: ${{ secrets.MAC_UPDATE_PRIVATE_KEY_B64 }}
+        run: node scripts/sign-mac-update.cjs --assets release-assets --out release-assets --tag "$GITHUB_REF_NAME"
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -95,6 +129,8 @@ jobs:
             release-assets/*.deb
             release-assets/latest*.yml
             release-assets/*.blockmap
+            release-assets/mac-update-v1.json
+            release-assets/mac-update-v1.sig
 # The matrix produces latest-linux.yml, latest-mac.yml and latest.yml. A single
 # dependent job publishes all platforms atomically into one release. Empty
 # macOS signing secrets use an explicit unsigned path; populated secrets enable

@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const { app, BrowserWindow, ClipboardItem, Menu, clipboard, dialog, ipcMain, protocol, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { buildMenuTemplate, COMMANDS } = require('./menu.cjs');
-const { configureUpdater } = require('./updater.cjs');
+const { configureUpdater, writeHealthAcknowledgement } = process.platform === 'darwin' ? require('./mac-updater.cjs') : require('./updater.cjs');
 const { classifyLocalPath, parseLaunchPaths, resolveDocumentAsset, resolveLocalFileLink } = require('./path-policy.cjs');
 const { discoverRepository } = require('./repository-context.cjs');
 const { NavigationHistory } = require('./navigation-history.cjs');
@@ -215,7 +215,7 @@ function executeCommand(name) {
   if (name === COMMANDS.UPDATE) return checkForUpdates();
   return undefined;
 }
-const checkForUpdates = configureUpdater(autoUpdater, dialog);
+const checkForUpdates = configureUpdater(process.platform === 'darwin' ? null : autoUpdater, dialog);
 
 async function openExternalLink(value) {
   let url;
@@ -307,6 +307,7 @@ else {
     });
     ipcMain.on('renderer-ready', async () => {
       rendererReady = true;
+      if (process.platform === 'darwin') await writeHealthAcknowledgement(app);
       const next = pendingPath;
       const fragment = pendingFragment;
       const historyMode = pendingHistoryMode;

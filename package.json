@@ -1,6 +1,6 @@
 {
   "name": "downtoread",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "A secure, view-only desktop Markdown reader",
   "desktopName": "DownToRead",
   "main": "src/main.cjs",
@@ -45,6 +45,24 @@
       "buildResources": "build",
       "output": "dist"
     },
+    "extraResources": [
+      {
+        "from": "src/mac-update-helper.cjs",
+        "to": "update/mac-update-helper.cjs"
+      },
+      {
+        "from": "src/mac-update-crypto.cjs",
+        "to": "update/mac-update-crypto.cjs"
+      },
+      {
+        "from": "src/mac-update-transaction.cjs",
+        "to": "update/mac-update-transaction.cjs"
+      },
+      {
+        "from": "build/mac-update-ed25519-public.pem",
+        "to": "update/mac-update-ed25519-public.pem"
+      }
+    ],
     "icon": "build/icon.png",
     "fileAssociations": [
       {

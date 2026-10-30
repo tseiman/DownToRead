@@ -115,13 +115,63 @@ DownToRead is a viewer, not a Markdown sandbox for arbitrary active content. Kee
 
 ## Updates
 
-Packaged builds use `electron-updater` with the GitHub provider `tseiman/DownToRead`. DownToRead checks shortly after launch and also offers **Help → Check for Updates…**. Downloads and installation require explicit native-dialog confirmation; updates never install silently. GitHub Releases must contain the installers, blockmaps, and `latest*.yml` metadata emitted by `electron-builder`.
+DownToRead checks shortly after launch and also offers **Help → Check for Updates…**. Downloads and installation require explicit native-dialog confirmation; **Later** is always the safe default and updates never install silently.
+
+Windows and Linux retain `electron-updater`. macOS uses a separate updater because Squirrel.Mac requires an Apple code signature for the running application and otherwise fails with `Could not get code signature for running application`.
+
+The macOS updater:
+
+- verifies the exact bytes of `mac-update-v1.json` with Ed25519 and a public key embedded in the application;
+- verifies the selected x64 or arm64 ZIP against its signed filename, URL, byte size, and SHA-256 digest;
+- downloads only over HTTPS from a fixed GitHub host allowlist;
+- starts a separate helper, quits DownToRead, waits for the original process to exit, and verifies the signed inputs again;
+- extracts on the destination volume, checks the application bundle and Mach-O architecture, keeps the old bundle as a backup, and restores it if replacement or startup health confirmation fails;
+- replaces only `DownToRead.app`, so Electron `userData`, preferences, and documents remain untouched.
+
+If the app is translocated, symlinked, or installed in a location the current user cannot replace, DownToRead keeps the already verified ZIP and offers a guided manual replacement instead. It never requests `sudo`, disables Gatekeeper or SIP, or removes quarantine attributes.
+
+> [!IMPORTANT]
+> Versions up to and including `0.1.11` still contain the old Squirrel.Mac path. They cannot acquire the new updater code through the failing unsigned update itself, so macOS users must install `0.1.12` manually once. Automatic Ed25519-verified macOS updates apply from `0.1.12` onward.
 
 ## Releases
 
-Pushing a `v*` tag, or manually dispatching `.github/workflows/release.yml`, runs tests and builds on real GitHub-hosted Windows, macOS, and Ubuntu runners. A dependent release job collects the platform artifacts and publishes the installers and update metadata to the tag release through `GITHUB_TOKEN`.
+Pushing a `v*` tag runs tests and builds on real GitHub-hosted Windows, macOS, and Ubuntu runners. A dependent release job collects the platform artifacts, signs the macOS update manifest, and publishes the installers and update metadata to the tag release through `GITHUB_TOKEN`.
 
 Windows produces an NSIS `.exe`; macOS produces separate Intel x64 and Apple Silicon arm64 `.dmg` and `.zip` packages; Linux produces `.AppImage` and `.deb`.
+
+### macOS update signing without an Apple account
+
+Create the Ed25519 key once on a trusted machine. Keep the private key outside this repository and back it up securely:
+
+```sh
+umask 077
+openssl genpkey -algorithm Ed25519 -out "$HOME/downtoread-mac-update-private.pem"
+openssl pkey -in "$HOME/downtoread-mac-update-private.pem" -pubout -out build/mac-update-ed25519-public.pem
+```
+
+Commit only `build/mac-update-ed25519-public.pem`. In the GitHub repository, create the Actions secret `MAC_UPDATE_PRIVATE_KEY_B64` containing the output of:
+
+```sh
+openssl base64 -A -in "$HOME/downtoread-mac-update-private.pem"
+```
+
+Then create and push a version tag matching `package.json`:
+
+```sh
+git tag v0.1.12
+git push origin main v0.1.12
+```
+
+The release job hashes the finished x64 and arm64 ZIP files, creates `mac-update-v1.json`, signs its exact bytes into `mac-update-v1.sig`, verifies that the private key matches the embedded public key, and uploads both files with the installers. The workflow fails closed when the secret is absent, invalid, or belongs to another key.
+
+For an offline/manual release-signing check against already built assets:
+
+```sh
+MAC_UPDATE_PRIVATE_KEY_B64="$(openssl base64 -A -in "$HOME/downtoread-mac-update-private.pem")" \
+  node scripts/sign-mac-update.cjs --assets dist --out dist --tag v0.1.12
+```
+
+The Ed25519 release signature authenticates DownToRead's update files; it does not replace Apple's Developer ID trust decision. An unsigned download can still show a first-launch warning such as “Apple could not verify…” or “developer cannot be verified.” Depending on the macOS version, the user may need Finder's **Open** context-menu action or **System Settings → Privacy & Security → Open Anyway** once. Do not disable Gatekeeper or SIP globally and do not treat removal of quarantine attributes as the solution.
 
 ### Optional macOS signing and notarization
 
