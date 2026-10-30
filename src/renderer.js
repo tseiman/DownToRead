@@ -14,6 +14,34 @@
   };
   marked.use({ gfm: true, renderer });
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' });
+  let mermaidStyleSheets = [];
+
+  function clearMermaidStyles() {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => !mermaidStyleSheets.includes(sheet));
+    mermaidStyleSheets = [];
+  }
+
+  function adoptMermaidStyles() {
+    clearMermaidStyles();
+    for (const style of root.querySelectorAll('.mermaid svg style')) {
+      try {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync(style.textContent || '');
+        mermaidStyleSheets.push(sheet);
+        style.remove();
+      } catch { /* Keep rendering usable if Mermaid emits unsupported CSS. */ }
+    }
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...mermaidStyleSheets];
+  }
+
+  function mermaidStylesApplied() {
+    const shape = root.querySelector('.mermaid .node rect, .mermaid .node circle, .mermaid .node polygon, .mermaid .node path');
+    const label = root.querySelector('.mermaid .nodeLabel, .mermaid .label');
+    const edge = root.querySelector('.mermaid .flowchart-link');
+    return Boolean(shape && label && edge && mermaidStyleSheets.length
+      && getComputedStyle(shape).fill !== getComputedStyle(label).color
+      && getComputedStyle(edge).stroke !== 'none');
+  }
 
   function assignHeadingIds() {
     const seen = new Map();
@@ -60,6 +88,7 @@
     setHistoryState(payload.history);
     document.documentElement.dataset.ready = 'false';
     root.className = 'markdown-body';
+    clearMermaidStyles();
 
     if (payload.mode === 'text') {
       root.className = 'markdown-body plain-text';
@@ -94,7 +123,10 @@
         await window.downToRead.openLink(href);
       });
     }
-    try { await mermaid.run({ nodes: root.querySelectorAll('.mermaid'), suppressErrors: false }); }
+    try {
+      await mermaid.run({ nodes: root.querySelectorAll('.mermaid'), suppressErrors: false });
+      adoptMermaidStyles();
+    }
     catch { for (const node of root.querySelectorAll('.mermaid[data-processed]')) node.classList.add('mermaid-error'); }
     const localImagesLoaded = (await Promise.all(imageLoads)).every(Boolean);
     if (payload.fragment) document.getElementById(payload.fragment)?.scrollIntoView();
@@ -102,6 +134,7 @@
     window.downToRead.rendered({
       markdown: Boolean(root.querySelector('h1')),
       mermaid: Boolean(root.querySelector('.mermaid svg')),
+      mermaidStyled: mermaidStylesApplied(),
       relativeImage: Boolean(root.querySelector('img[src^="downtoread-asset:"]')),
       localImagesLoaded
     });

@@ -45,6 +45,16 @@ test('CSP permits only the private asset protocol for rendered local images', ()
   assert.match(main, /allowedAssets\.has\(path\.resolve\(candidate\)\)/);
 });
 
+test('Mermaid adopts its generated theme stylesheet without weakening CSP', () => {
+  const html = read('src/index.html');
+  const renderer = read('src/renderer.js');
+  assert.doesNotMatch(html, /style-src[^;]*'unsafe-inline'/);
+  assert.match(renderer, /new CSSStyleSheet\(\)/);
+  assert.match(renderer, /replaceSync\(style\.textContent/);
+  assert.match(renderer, /document\.adoptedStyleSheets/);
+  assert.match(renderer, /adoptMermaidStyles\(\)/);
+});
+
 test('Markdown link navigation is delegated through the validated main-process path', () => {
   const preload = read('src/preload.cjs');
   const renderer = read('src/renderer.js');
@@ -74,11 +84,13 @@ test('filesystem drag and drop opens one validated readable file', () => {
   assert.match(main, /return openReadableFile\(filePath\)/);
 });
 
-test('smoke readiness requires local images to decode successfully', () => {
+test('smoke readiness requires styled Mermaid and decoded local images', () => {
   const renderer = read('src/renderer.js');
   const main = read('src/main.cjs');
   assert.match(renderer, /image\.decode\(\)/);
   assert.match(renderer, /localImagesLoaded/);
+  assert.match(renderer, /mermaidStyled/);
+  assert.match(main, /result\.mermaidStyled === true/);
   assert.match(main, /result\.localImagesLoaded === true/);
 });
 

@@ -317,7 +317,7 @@ else {
     });
     ipcMain.on('renderer-rendered', (_event, result) => {
       if (process.env.DTR_SMOKE !== '1') return;
-      const passed = result && result.markdown === true && result.mermaid === true && result.relativeImage === true && result.localImagesLoaded === true;
+      const passed = result && result.markdown === true && result.mermaid === true && result.mermaidStyled === true && result.relativeImage === true && result.localImagesLoaded === true;
       console.log(passed ? 'SMOKE PASS: Markdown, Mermaid, and decoded relative SVG are ready.' : `SMOKE FAIL: ${JSON.stringify(result)}`);
       app.exit(passed ? 0 : 1);
     });

@@ -5,7 +5,7 @@ DownToRead is a cross-platform, view-only Electron reader for local Markdown. It
 ## Features
 
 - Open Markdown, readable UTF-8/UTF-16 text files, and supported images from the native **File → Open…** menu or by dragging one file onto the application window. Markdown file associations, macOS Finder, shell launches, and second application launches remain supported.
-- GitHub-Flavored Markdown including tables, task lists, autolinks, and strikethrough.
+- GitHub-Flavored Markdown including tables, task lists, autolinks, and strikethrough. Mermaid diagrams retain their theme styling under the strict CSP in both light and dark system modes.
 - Relative and absolute local SVG/PNG/JPEG/WebP/GIF images plus fenced `mermaid` diagrams. Local images are decoded before rendering is reported complete; missing or invalid images retain descriptive fallback text.
 - Navigation to local Markdown, text, source-code, and image files through relative or parent-relative links, repository-root links such as `/docs/setup.md`, file URLs, and same-repository GitHub `blob` URLs. Heading fragments are supported.
 - Safe inline HTML such as `<details>`, `<summary>`, and `<a>` is rendered after sanitization instead of appearing as source text.

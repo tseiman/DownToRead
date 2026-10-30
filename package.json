@@ -1,6 +1,6 @@
 {
   "name": "downtoread",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "A secure, view-only desktop Markdown reader",
   "desktopName": "DownToRead",
   "main": "src/main.cjs",
