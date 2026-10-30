@@ -45,6 +45,10 @@ function runCommand(command, args) {
   if (result.status !== 0) throw new Error(`${path.basename(command)} failed: ${(result.stderr || result.stdout || '').trim().slice(0, 300)}`);
 }
 
+function showRecoveryAlert() {
+  runCommand('/usr/bin/osascript', ['-e', 'display alert "DownToRead update failed" message "The previous app could not be restored automatically. Reinstall DownToRead from the verified release package." as critical']);
+}
+
 async function extractArchive(artifactPath, stagingDirectory) {
   runCommand('/usr/bin/ditto', ['-x', '-k', artifactPath, stagingDirectory]);
 }
@@ -142,7 +146,9 @@ async function runUpdate(planInput, {
   _fsp = fsp,
   _kill = process.kill,
   _launchExecutable = launchExecutable,
+  _platform = process.platform,
   _readSignedUpdate = readSignedUpdate,
+  _showRecoveryAlert = showRecoveryAlert,
   _validateMachO = validateMachO,
   _waitForHealth = waitForHealth,
   _waitForPidExit = waitForPidExit,
@@ -230,8 +236,8 @@ async function runUpdate(planInput, {
     };
     await _writeResult(plan.resultPath, result).catch(() => {});
     if (rollbackComplete) await relaunchOld();
-    else if (process.platform === 'darwin') {
-      try { runCommand('/usr/bin/osascript', ['-e', 'display alert "DownToRead update failed" message "The previous app could not be restored automatically. Reinstall DownToRead from the verified release package." as critical']); } catch { /* no UI remains */ }
+    else if (_platform === 'darwin') {
+      try { await _showRecoveryAlert(); } catch { /* no UI remains */ }
     }
     throw error;
   } finally {
@@ -253,4 +259,4 @@ if (require.main === module) main(process.argv.slice(2)).catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { PLAN_SCHEMA, machOArchitectures, main, readSignedUpdate, runUpdate, validateMachO, validatePlan, waitForHealth, waitForPidExit, writeResult };
+module.exports = { PLAN_SCHEMA, machOArchitectures, main, readSignedUpdate, runUpdate, showRecoveryAlert, validateMachO, validatePlan, waitForHealth, waitForPidExit, writeResult };

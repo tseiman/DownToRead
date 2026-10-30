@@ -421,16 +421,19 @@ test('rollback failure is recorded for guided manual recovery', async () => {
       if (value === target && options?.recursive) throw new Error('injected rollback removal failure');
       return fsp.rm(value, options);
     };
+    let recoveryAlerts = 0;
     await assert.rejects(() => runUpdate(plan, {
       publicKeyPath: fixture.publicKeyPath, _fsp: wrapped, _waitForPidExit: async () => {},
       _extractArchive: async (_archive, staging) => { await createAppBundle(path.join(staging, 'DownToRead.app'), 'new-version'); },
       _validateMachO: () => true, _launchExecutable: () => 999999, _waitForHealth: async () => false,
       _kill: () => { throw Object.assign(new Error('gone'), { code: 'ESRCH' }); },
+      _platform: 'darwin', _showRecoveryAlert: async () => { recoveryAlerts += 1; },
     }), /startup/);
     const result = JSON.parse(await fsp.readFile(plan.resultPath, 'utf8'));
     assert.equal(result.success, false);
     assert.equal(result.rollbackComplete, false);
     assert.equal(result.verifiedArchive, fixture.artifactPath);
+    assert.equal(recoveryAlerts, 1);
   });
 });
 
